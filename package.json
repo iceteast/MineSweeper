@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.25.2",
+    "@iconify-json/arcticons": "^1.2.0",
     "@iconify-json/carbon": "^1.1.37",
     "@types/node": "^22.3.0",
     "@unocss/eslint-config": "^0.62.2",
