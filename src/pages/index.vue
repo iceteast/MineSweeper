@@ -1,12 +1,5 @@
 <script setup lang="ts" generic="T extends any, O extends any">
-interface BlockState {
-  x: number
-  y: number
-  revealed: boolean
-  mine?: boolean
-  flagged: boolean
-  adjacentMines: number
-}
+import type { BlockState } from '~/types'
 
 const WIDTH = 10
 const HEIGHT = 10
@@ -32,13 +25,14 @@ const numberColor = [
   'text-orange-500',
 ]
 
-const state: BlockState[][] = reactive(
+const state = ref(
   Array.from({ length: HEIGHT }, (_, y) =>
     Array.from({ length: WIDTH }, (_, x) => ({
       x,
       y,
       adjacentMines: 0,
       revealed: false,
+      mine: false,
       flagged: false,
     }))),
 )
@@ -46,8 +40,25 @@ const state: BlockState[][] = reactive(
 let gameover = false
 let start = false
 let res = ''
+let startTime = Date.now()
+let time = ''
+
+function restart() {
+  gameover = false
+  start = false
+  res = ''
+
+  for (const row of state.value) {
+    for (const block of row) {
+      block.adjacentMines = 0
+      block.revealed = false
+      block.mine = false
+      block.flagged = false
+    }
+  }
+}
 function generateMines(initial: BlockState) {
-  for (const row of state) {
+  for (const row of state.value) {
     for (const block of row) {
       if (Math.abs(block.x - initial.x) < 2 && Math.abs(block.y - initial.y) < 2)
         continue
@@ -56,10 +67,11 @@ function generateMines(initial: BlockState) {
   }
 
   updateNumbers()
+  startTime = Date.now()
 }
 
 function updateNumbers() {
-  state.forEach((row) => {
+  state.value.forEach((row) => {
     row.forEach((block) => {
       if (block.mine)
         return
@@ -76,7 +88,7 @@ function checkWin(block: BlockState) {
     res = 'BOOM'
     gameover = true
   }
-  if (state.every(row => row.every(item => item.mine || item.revealed))) {
+  if (state.value.every(row => row.every(item => item.mine || item.revealed))) {
     res = 'U Win'
     gameover = true
   }
@@ -86,7 +98,7 @@ function getBlockClass(block: BlockState) {
   if (block.flagged)
     return 'bg-red-500/20'
   if (!gameover && !block.revealed)
-    return 'bg-gray-500/20'
+    return 'bg-gray-500/20 hover:bg-cyan/20'
   return block.mine ? 'bg-red-500/30' : numberColor[block.adjacentMines]
 }
 function onClick(block: BlockState) {
@@ -134,42 +146,99 @@ function getSiblings(block: BlockState) {
     if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT)
       return undefined
 
-    return state[ny][nx]
+    return state.value[ny][nx]
   })
     .filter(Boolean) as BlockState[]
 }
+
+function getStatus() {
+  let f = 0
+  let b = 0
+  for (const row of state.value) {
+    for (const block of row) {
+      if (block.flagged)
+        f++
+      if (block.mine)
+        b++
+    }
+  }
+  return `${f.toString()}/${b.toString()}`
+}
+
+function timer() {
+  time = ((Date.now() - startTime) / 1000).toString()
+}
+
+setInterval(
+  () => { timer() },
+  10,
+)
 </script>
 
 <template>
   <div>
     Mine Sweeper
     <div p5>
-      <div class="text-red-500">
-        {{ res }}
+      <div v-if="gameover">
+        <button
+          hover="bg-amber/20"
+          w-106
+          border
+          @click="restart"
+        >
+          restart
+        </button>
+      </div>
+      <div
+        v-else
+        align="center"
+      >
+        <table
+          w-106
+          border-1
+        >
+          <tr>
+            <td w-10>
+              {{ getStatus() }}
+            </td>
+            <td w-80>
+              {{ res }}
+            </td>
+            <td w-10>
+              {{ time }}
+            </td>
+          </tr>
+        </table>
       </div>
       <div
         v-for="row, y in state"
         :key="y"
         flex="~"
-        items-center justify-center
+        items-center
+        justify-center
       >
         <button
           v-for="item, x in row"
           :key="x"
           flex="~"
-
-          hover="bg-cyan/20"
           m="0.3"
           h-10
           w-10
-          items-center justify-center border :class="getBlockClass(item)" @click="onClick(item)"
+          items-center
+          justify-center
+          border
+          :class="getBlockClass(item)"
+          @click="onClick(item)"
           @contextmenu.prevent="onRightClick(item)"
         >
           <template v-if="item.flagged">
             <div i-arcticons:3dmark />
           </template>
           <template v-else-if="gameover || item.revealed">
-            <div v-if="item.mine" i-arcticons:bombsquad />
+            <div
+              v-if="item.mine"
+              i-arcticons:bombsquad
+            />
             <div v-else>
               {{ item.adjacentMines }}
             </div>
